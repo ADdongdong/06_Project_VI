@@ -1,0 +1,10 @@
+{
+    "python.analysis.extraPaths": [
+        "./numpyro",
+    ],
+    "python.linting.pylintCategorySeverity.convention": "Hint",
+    "python.linting.pylintCategorySeverity.error": "Hint",
+    "python.linting.pylintCategorySeverity.fatal": "Hint",
+    "python.linting.pylintCategorySeverity.warning": "Hint",
+    "python.terminal.executeInFileDir": true
+}

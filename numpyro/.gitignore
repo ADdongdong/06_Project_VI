@@ -1,0 +1,36 @@
+numpyro.egg-info
+__pycache__/
+.ipynb_checkpoints/
+build
+
+# built / compiled
+*.pyc
+*.pyo
+/build
+/dist
+
+# IDE
+.idea
+.vscode
+*~
+*.el
+
+# data files
+*.pdf
+numpyro/examples/.data
+examples/.results
+examples/*.pdf
+numpyro/.DS_Store
+
+# test related
+.pytest_cache
+
+# data
+numpyro/examples/.data
+
+# tmp files
+.*.swp
+
+# docs
+docs/build
+docs/.DS_Store
