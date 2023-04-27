@@ -13,7 +13,6 @@ data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
 #定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理
 def define_model():
     base_distribution = distributions.StandardNormal((1,))
-
     # Define the flow
     num_transforms = 4
     transforms_ = []
