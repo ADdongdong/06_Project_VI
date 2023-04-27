@@ -33,33 +33,35 @@ def define_model():
 
 
 
+def train_model(distribution):
+    optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
+    for j in range(8):
+        #每次取出一个特征的数据进行学习
+        data_ = torch.tensor(data=[j])
+        print(data_.shape)
+        data_ = data_.reshape((len(data_), 1)).float()
+        print(data_.shape)
+        print(data_.dtype)
+        for i in range(1000):
+            optimizer.zero_grad()
+            loss = -distribution.log_prob(inputs=data_).mean()
+            loss.backward()
+            optimizer.step()
+            if i % 100 == 0:
+                print(i)
+        #将每次训练的结果保存下来
+        model_name = "./normalizingFlowModel/OptimA" + str(j+1) +".pt"
+        torch.save(distribution.state_dict(), model_name)
+        #从Ai对应的模型中进行采样1000个数据并加入到sample_list文件中
+        sapmle_ = distribution.sample(1000)
+        sample_data.append(sapmle_.detach().numpy())
+
+
 sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution_list = []
 distribution = define_model()
-optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
-for j in range(8):
-    #每次取出一个特征的数据进行学习
-    data_ = torch.tensor(data=[j])
-    print(data_.shape)
-    data_ = data_.reshape((len(data_), 1)).float()
-    print(data_.shape)
-    print(data_.dtype)
-    for i in range(1000):
-        optimizer.zero_grad()
-        loss = -distribution.log_prob(inputs=data_).mean()
-        loss.backward()
-        optimizer.step()
-        if i % 100 == 0:
-            print(i)
-    #将每次训练的结果保存下来
-    model_name = "./normalizingFlowModel/OptimA" + str(j+1) +".pt"
-    torch.save(distribution.state_dict(), model_name)
-    #从Ai对应的模型中进行采样1000个数据并加入到sample_list文件中
-    sapmle_ = distribution.sample(1000)
-    sample_data.append(sapmle_.detach().numpy())
-
-
+train_model(distribution)
 #将采样出来的数据保存起来``
 sample_data = np.array(sample_data)
 np.save('./00_data/sample_data.npy', sample_data)
