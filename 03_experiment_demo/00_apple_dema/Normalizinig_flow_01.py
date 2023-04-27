@@ -10,30 +10,33 @@ import numpy as np
 #数据处理
 data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
 
-'''
-对经过聚类和挑选最优矩阵的数据进行正则化流处理
-'''
-base_distribution = distributions.StandardNormal((1,))
+#定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理
+def define_model():
+    base_distribution = distributions.StandardNormal((1,))
 
-# Define the flow
-num_transforms = 4
-transforms_ = []
-for _ in range(num_transforms):
-    transforms_.append(transforms.MaskedAffineAutoregressiveTransform(
-        features=1,
-        hidden_features=2,
-        context_features=None,
-        # activation='ReLU',
-        # activation: 激活函数，可以是任何PyTorch中支持的函数，默认是torch.nn.ReLU。
-    ))
-transform = transforms.CompositeTransform(transforms_)
+    # Define the flow
+    num_transforms = 4
+    transforms_ = []
+    for _ in range(num_transforms):
+        transforms_.append(transforms.MaskedAffineAutoregressiveTransform(
+            features=1,
+            hidden_features=2,
+            context_features=None,
+            # activation='ReLU',
+            # activation: 激活函数，可以是任何PyTorch中支持的函数，默认是torch.nn.ReLU。
+        ))
+    transform = transforms.CompositeTransform(transforms_)
 
-# 定义一个流模型
-distribution = flows.Flow(transform, base_distribution)
+    # 定义一个流模型
+    distribution = flows.Flow(transform, base_distribution)
+    return distribution
+
+
 
 sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution_list = []
+distribution = define_model()
 optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
 for j in range(8):
     #每次取出一个特征的数据进行学习
