@@ -34,6 +34,7 @@ def define_model():
 
 
 def train_model(distribution):
+    distribution_list = []
     optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
     for j in range(8):
         #每次取出一个特征的数据进行学习
@@ -59,7 +60,6 @@ def train_model(distribution):
 
 sample_data = []
 #通过训练这个流模型来学习这个分布
-distribution_list = []
 distribution = define_model()
 train_model(distribution)
 #将采样出来的数据保存起来``
