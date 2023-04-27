@@ -50,6 +50,7 @@ class HVAE(nn.Module):
         x_recon2 = self.decoder2(z2)
         return x_recon1, x_recon2
     
+    #重参数化
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
@@ -92,7 +93,7 @@ def train_vae():
     criterion = nn.MSELoss()
 
     # 开始训练
-    num_epochs = 10000
+    num_epochs = 5000
     for epoch in range(num_epochs):
         # 前向传播
         loss = model.forward(x)

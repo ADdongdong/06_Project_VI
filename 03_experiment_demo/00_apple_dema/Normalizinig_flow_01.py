@@ -5,7 +5,7 @@ import nflows.distributions as distributions
 import nflows.transforms as transforms
 import nflows.flows as flows
 import numpy as np
-import os
+
 
 #数据处理
 data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
@@ -31,6 +31,7 @@ transform = transforms.CompositeTransform(transforms_)
 # 定义一个流模型
 distribution = flows.Flow(transform, base_distribution)
 
+sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution_list = []
 optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
@@ -51,4 +52,12 @@ for j in range(8):
     #将每次训练的结果保存下来
     model_name = "./normalizingFlowModel/OptimA" + str(j+1) +".pt"
     torch.save(distribution.state_dict(), model_name)
+    #从Ai对应的模型中进行采样1000个数据并加入到sample_list文件中
+    sapmle_ = distribution.sample(1000)
+    sample_data.append(sapmle_.detach().numpy())
+
+
+#将采样出来的数据保存起来``
+sample_data = np.array(sample_data)
+np.save('./00_data/sample_data.npy', sample_data)
 
