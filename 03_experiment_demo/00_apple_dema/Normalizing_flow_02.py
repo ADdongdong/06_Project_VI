@@ -9,7 +9,7 @@ import os
 
 print(os.getcwd())
 #数据处理
-data = np.load('./00_dataarr_unique_count.npy', allow_pickle=True)
+data = np.load('./00_data/arr_unique_count.npy', allow_pickle=True)
 #print(data[0])
 #将data中的所有一维数据都转换成8乘8的二维数据
 
@@ -50,10 +50,6 @@ for i in range(8):
     final_list.append(normalized_result[:,i])
 
 #print(final_list)
-
-
-
-
 '''
 对未经过聚类和挑选最优矩阵的数据进行正则化流处理
 '''
