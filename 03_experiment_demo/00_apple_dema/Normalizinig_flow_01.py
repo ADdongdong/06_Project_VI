@@ -31,7 +31,7 @@ def define_model():
     return distribution
 
 
-
+#定义训练模型的函数
 def train_model(distribution):
     distribution_list = []
     optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
@@ -57,6 +57,7 @@ def train_model(distribution):
         sample_data.append(sapmle_.detach().numpy())
 
 
+#定义数组，保存Ai采样出来的数据
 sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution = define_model()
