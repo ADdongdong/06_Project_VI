@@ -5,6 +5,7 @@ import nflows.distributions as distributions
 import nflows.transforms as transforms
 import nflows.flows as flows
 import numpy as np
+import Normalizinig_flow_01
 import os
 
 print(os.getcwd())
@@ -49,10 +50,7 @@ final_list = []
 for i in range(8):
     final_list.append(normalized_result[:,i])
 
-#print(final_list)
-'''
-对未经过聚类和挑选最优矩阵的数据进行正则化流处理
-'''
+#对未经过聚类和挑选最优矩阵的数据进行正则化流处理
 # Define the base distribution
 base_distribution = distributions.StandardNormal((1,))
 

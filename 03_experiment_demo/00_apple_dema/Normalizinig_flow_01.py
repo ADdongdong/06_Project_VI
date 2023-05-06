@@ -62,7 +62,7 @@ sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution = define_model()
 train_model(distribution)
-#将采样出来的数据保存起来``
+#将采样出来的数据保存起来
 sample_data = np.array(sample_data)
 np.save('./00_data/sample_data.npy', sample_data)
 
