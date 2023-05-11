@@ -20,10 +20,10 @@ class UHA:
     #    return torch.sum(x ** 2) / 2
 
     #定义能量函数的梯度
-    def grad_E(self, x):
-        E = self.E(x)
+    def grad_E(self, mu, logvar):
+        z = self.E(mu, logvar)
         # dE/dx
-        return torch.autograd.grad(E, x)[0]
+        return torch.autograd.grad(z, mu, logvar)[0]
 
     #HMC步骤
     def HMC_step(self, x, p, eps):
@@ -41,7 +41,7 @@ class UHA:
         for i in range(self.L_m):
             #使用HMC步骤进行L_m次采样，并更新x和p
             x, p = self.HMC_step(x, p, self.eps_m)
-        return x, p
+        return x
 
     #采样函数
     def sample(self, num_samples=1):
@@ -49,7 +49,6 @@ class UHA:
         for i in range(num_samples):
             # 初始化当前状态
             x = torch.randn(self.dim).requires_grad_(True)
-
             # 运行未校正哈密顿算法
             for m in range(1000):
                 # 从未校正的状态转移矩阵中采样(从转移核中采样)
@@ -61,14 +60,22 @@ class UHA:
         return samples
 
     #定义函数从q(z|x)中采样
-    def q_z(self, x:list, func)->list:
+    def q_z(self, x:list, mu, logvar, num:int)->list:
         '''
             参数x: 要采样的样本个数
             参数func: 对那个分布(函数)进行采样
+                mu: 编码器学习到的mu
+                logvar: 编码器学习到的logvar
             返回值：采样成功以后的样本列表
         '''
+        #重参数化z
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        z = mu + eps * std
+        self.E = z
+
         #传入进来的是空列表
-        sample = self.sample(x)
+        sample = self.sample(num)
         return sample
 
     #定义函数丛p(z|x)中采样
@@ -85,3 +92,7 @@ def E(x):
 uha = UHA(f=E, dim =1)
 sample = uha.sample(10)
 print(sample)
+result = []
+mu = torch.tensor(1.)
+logvar = torch.tensor(0.)
+sample = uha.q_z(result, mu, logvar, 10)

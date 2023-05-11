@@ -62,7 +62,6 @@ class HVAE(nn.Module):
     def compute_elbo(model, x, num_samples=10):
         """
         计算未校正的哈密顿动力学模型下的ELBO
-        
         参数：
             model: 未校正的哈密顿动力学模型
             x: 输入数据，大小为[batch_size, input_size]
@@ -71,19 +70,19 @@ class HVAE(nn.Module):
         返回：
             elbo: ELBO（Evidence Lower Bound）
         """
-        
         batch_size, input_size = x.size()
 
-        # 从后验分布q(z|x)中采样num_samples个样本
+        # 从后验分布q(z|x)中采样num_samples个样本(优化q(z|x))
         z_samples = []
         for i in range(num_samples):
-            z_q, _ = model.q_z(x)
+            #这里是用UHA来对q_z进行采样
+            z_q = model.q_z(x)
             z_samples.append(z_q)
 
         # 将样本堆叠成张量
         z_samples = torch.stack(z_samples)
 
-        # 计算解码器p(x|z)的对数似然,即重构误差
+        # 计算解码器p(x|z)的对数似然
         x_logits = model.p_x(z_samples).view(num_samples, batch_size, -1)
         log_likelihood = F.log_softmax(x_logits, dim=-1).sum(-1).mean(0)
 
@@ -96,8 +95,8 @@ class HVAE(nn.Module):
 
         # 计算ELBO
         elbo = log_likelihood - kl_divergence
-
         return -elbo  # 返回负数，因为我们使用优化器最小化损失函数   
+    
     
     def forward(self, x):
         # Encode 两次编码
