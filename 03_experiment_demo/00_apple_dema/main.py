@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
    
 # 训练模型
-def train_vae():
+def main():
     # 随机生成数据
     x = torch.randn(1000, 1)
     x = x.reshape((1, 1000))
@@ -24,13 +24,13 @@ def train_vae():
         optimizer.step()
 
         # 打印损失信息
-        print('Epoch [{}/{}], Loss: {:.4f},'.format(
-            epoch+1, num_epochs, loss.item()))
+        print('Epoch [{}/{}], Loss: {:.4f},'.format(epoch+1, num_epochs, loss.item()))
 
     # 返回训练好的模型
     return model
 
 
+
 #主程序
 if __name__ == 'main':
-    train_vae()
+    result = main()
