@@ -96,30 +96,6 @@ def hamiltonian_kernel(z0, target_dist, num_steps=10, step_size=0.1):
     return z_new
 
 
-# Define the Uncorrected Hamiltonian Annealing method
-def uha(target_dist, num_samples=100, num_steps=10, step_size=0.1):
-    # Initialize the lower bound
-    lower_bound = 0.0
-    
-    # Sample from the prior distribution
-    z0 = torch.randn(num_samples, latent_dim)
-    
-    # Perform Hamiltonian MCMC transitions
-    for m in range(num_steps):
-        zm = hamiltonian_kernel(z0, target_dist, num_steps=num_steps-m, step_size=step_size)
-        zm1 = hamiltonian_kernel(zm, target_dist, num_steps=m+1, step_size=step_size)
-        
-        # Compute the ratio of unnormalized densities
-        log_ratio = target_dist.log_prob(zm1).sum(1) - target_dist.log_prob(zm).sum(1)
-        
-        # Update the lower bound
-        lower_bound += log_ratio.mean()
-        
-        # Update z0 for the next iteration
-        z0 = zm1.clone().detach().requires_grad_(True)
-    
-    return -lower_bound / num_steps
-
 
 # 训练模型
 def train_vae():
