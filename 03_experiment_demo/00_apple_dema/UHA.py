@@ -1,6 +1,8 @@
 import torch
 import hvae 
 
+
+
 class UHA:
     '''
         参数：
@@ -20,10 +22,11 @@ class UHA:
     #    return torch.sum(x ** 2) / 2
 
     #定义能量函数的梯度
-    def grad_E(self, mu, logvar):
-        z = self.E(mu, logvar)
-        # dE/dx
-        return torch.autograd.grad(z, mu, logvar)[0]
+    def hamiltonian_dynamics(self, mu, logvar):
+        # Compute the gradients of the target function with respect to mu and logvar
+        grad_mu, grad_logvar = torch.autograd.grad(self.E(mu, logvar), [mu, logvar])
+        return grad_mu, grad_logvar
+
 
     #HMC步骤
     def HMC_step(self, x, p, eps):
@@ -58,6 +61,13 @@ class UHA:
             samples.append(y.detach().numpy())
 
         return samples
+    @staticmethod
+    def target_function_z(mu, logvar):
+        #重参数化z
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        z = mu + eps * std
+        return z
 
     #定义函数从q(z|x)中采样
     def q_z(self, x:list, mu, logvar, num:int)->list:
@@ -68,11 +78,7 @@ class UHA:
                 logvar: 编码器学习到的logvar
             返回值：采样成功以后的样本列表
         '''
-        #重参数化z
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        z = mu + eps * std
-        self.E = z
+        self.E = UHA.target_function_z(mu, logvar)
 
         #传入进来的是空列表
         sample = self.sample(num)
