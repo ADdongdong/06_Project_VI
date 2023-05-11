@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import nflows 
 from tqdm import tqdm
-from pyro.infer.mcmc import AIS
+from UHA import uha
+import torch.nn.functional as F
 
 
 class HVAE(nn.Module):
@@ -55,7 +56,8 @@ class HVAE(nn.Module):
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        return eps * std + mu
+        z = mu + eps * std
+        return z
     
     def forward(self, x):
         # Encode 两次编码
@@ -81,48 +83,42 @@ class HVAE(nn.Module):
         
         return total_loss
 
-#定义哈密尔顿转移核函数(状态转移矩阵)
-def hamiltonian_kernel(z0, target_dist, num_steps=10, step_size=0.1):
-    z = z0.clone().detach().requires_grad_(True)
-    p = torch.randn_like(z)
-    H = lambda z: -target_dist.log_prob(z).sum() + 0.5 * p.pow(2).sum()
-    grad_H = torch.autograd.grad(H(z), z)[0]
-    p = p - 0.5 * step_size * grad_H
-    for i in range(num_steps):
-        z = z + step_size * p
-        grad_H = torch.autograd.grad(H(z), z)[0]
-        p = p - step_size * grad_H
-    z_new = z.clone().detach().requires_grad_(True)
-    return z_new
+    def compute_elbo(model, x, num_samples=10):
+        """
+        计算未校正的哈密顿动力学模型下的ELBO
+        
+        参数：
+            model: 未校正的哈密顿动力学模型
+            x: 输入数据，大小为[batch_size, input_size]
+            num_samples: 采样数量
+        
+        返回：
+            elbo: ELBO（Evidence Lower Bound）
+        """
+        
+        batch_size, input_size = x.size()
 
+        # 从后验分布q(z|x)中采样num_samples个样本
+        z_samples = []
+        for i in range(num_samples):
+            z_q, _ = model.q_z(x)
+            z_samples.append(z_q)
 
+        # 将样本堆叠成张量
+        z_samples = torch.stack(z_samples)
 
-# 训练模型
-def train_vae():
-    # 随机生成数据
-    x = torch.randn(1000, 1)
-    x = x.reshape((1, 1000))
-    # 创建模型、优化器和损失函数
-    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =2, hidden_size2= 2, latent_size2= 2)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.MSELoss()
+        # 计算解码器p(x|z)的对数似然
+        x_logits = model.p_x(z_samples).view(num_samples, batch_size, -1)
+        log_likelihood = F.log_softmax(x_logits, dim=-1).sum(-1).mean(0)
 
-    # 开始训练
-    num_epochs = 5000
-    for epoch in range(num_epochs):
-        # 前向传播
-        loss = model.forward(x)
+        # 计算后验分布q(z|x)与先验分布p(z)之间的KL散度
+        z_p = model.sample_prior(num_samples)
+        kl_divergence = torch.distributions.kl_divergence(
+            torch.distributions.Normal(z_samples.mean(0), z_samples.std(0)),
+            torch.distributions.Normal(z_p, torch.ones_like(z_p))
+        ).sum(-1).mean(0)
 
-        # 反向传播和参数更新
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # 计算ELBO
+        elbo = log_likelihood - kl_divergence
 
-        # 打印损失信息
-        print('Epoch [{}/{}], Loss: {:.4f},'.format(
-            epoch+1, num_epochs, loss.item()))
-
-    # 返回训练好的模型
-    return model
-
-train_vae()
+        return -elbo  # 返回负数，因为我们使用优化器最小化损失函数
