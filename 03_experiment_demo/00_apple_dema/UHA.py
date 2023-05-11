@@ -18,8 +18,8 @@ class UHA:
         self.E = f 
 
     #定义能量函数E
-    #def E(self, x):
-    #    return torch.sum(x ** 2) / 2
+    def E(self, x):
+        return torch.sum(x ** 2) / 2
 
     #定义能量函数的梯度
     def hamiltonian_dynamics(self, mu, logvar):
@@ -61,6 +61,7 @@ class UHA:
             samples.append(y.detach().numpy())
 
         return samples
+    
     @staticmethod
     def target_function_z(mu, logvar):
         #重参数化z
