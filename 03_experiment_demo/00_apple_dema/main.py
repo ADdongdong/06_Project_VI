@@ -1,7 +1,8 @@
 from hvae import HVAE
 import torch
 import torch.nn as nn
-   
+from tqdm import tqdm
+
 # 训练模型
 def main():
     # 随机生成数据
@@ -14,6 +15,7 @@ def main():
 
     # 开始训练
     num_epochs = 5000
+    pbar = tqdm(range(num_epochs))
     for epoch in range(num_epochs):
         # 前向传播
         loss = model.forward(x)
@@ -23,14 +25,14 @@ def main():
         loss.backward()
         optimizer.step()
 
-        # 打印损失信息
-        print('Epoch [{}/{}], Loss: {:.4f},'.format(epoch+1, num_epochs, loss.item()))
+        description = f"Epoch {epoch}: Loss={loss:.2f}"
+        pbar.set_description(description)
+        pbar.update(1)
 
+    #print('Epoch [{}/{}], Loss: {:.4f},'.format(epoch+1, num_epochs, loss.item()))
     # 返回训练好的模型
     return model
 
 
-
 #主程序
-if __name__ == 'main':
-    result = main()
+main()

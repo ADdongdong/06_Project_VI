@@ -53,6 +53,7 @@ class UHA:
 
         return mu_current, logvar_current, momentum_current
 
+    
     #UHA步骤，未校正哈密顿
     '''
         参数
@@ -79,14 +80,13 @@ class UHA:
     def sample(self, mu, logvar, num_samples=1):
         samples = []
         #添加采样进度条
-        qbar = tqdm(range(num_samples))
-        for i in qbar:
+        #qbar = tqdm(range(num_samples))
+        for i in range(num_samples):
             # 初始化当前状态
-            mu = torch.randn(1).requires_grad_(True)
-            logvar = torch.randn(1).requires_grad_(True)
+            #mu = torch.randn(1).requires_grad_(True)
+            #logvar = torch.randn(1).requires_grad_(True)
             # 运行未校正哈密顿算法, 这里循环的次数表示经过很多次后，
             # MCMC会趋近平稳，达到目标函数
-
             for m in range(1000):
                 # 从未校正的状态转移矩阵中采样(从转移核中采样)
                 mu, logvar = self.UHA_step(mu, logvar)
@@ -96,56 +96,14 @@ class UHA:
 
         return samples
     
-    @staticmethod
-    def target_function_z(mu, logvar):
-        #重参数化z
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        z = mu + eps * std
-        return z
-
-    #定义函数从q(z|x)中采样
-    def q_z(self, x:list, mu, logvar, num:int)->list:
-        '''
-            参数x: 要采样的样本个数
-            参数func: 对那个分布(函数)进行采样
-                mu: 编码器学习到的mu
-                logvar: 编码器学习到的logvar
-            返回值：采样成功以后的样本列表
-        '''
-        self.E = UHA.target_function_z(mu, logvar)
-
-        #传入进来的是空列表
-        sample = self.sample(num)
-        return sample
-
-    #定义函数丛p(z|x)中采样
-    def p_z(x:list)->list:
-        '''
-            函数返回值为采样的列表
-        '''
-        pass
-
-
-def E(x):
-    return torch.sum(x * 2) / 2
-
-def test1():
-    uha = UHA(f=E, dim =1)
-    sample = uha.sample(10)
-    print(sample)
-    result = []
-    mu = torch.tensor(1.)
-    logvar = torch.tensor(0.)
-    sample = uha.q_z(result, mu, logvar, 10)
-
 #测试函数测试优化mu和logvar的UHA
-def test2():
+def test1():
     #这里的mu和logvar模拟的是变分自编码器生成的mu和logvar
     mu = torch.tensor(1.).requires_grad_(True)
     logvar = torch.tensor(0.).requires_grad_(True)
     uha = UHA(2, None, L_m=10, step_size=0.1)
-    result = uha.sample(mu, logvar, 100)
+    result = uha.sample(mu, logvar, 1)
     print(result)
 
-test2()
+if __name__ == 'main':
+    test1()
