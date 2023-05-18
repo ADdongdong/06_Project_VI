@@ -84,7 +84,9 @@ class HVAE(nn.Module):
         
         # Compute Loss
         #计算重构误差，就是经过vae前的数据和vae后的数据的区别 这一项就是ELBO中的交叉熵
+        #计算第一个重构误差，是代码输入和第第二次解码得到的重构误差
         recon_loss1 = nn.functional.mse_loss(x_recon1, x, reduction='sum') 
+        #计算第二个重构误差，是第二次编码的输入和第一次解码的输出计算的重构误差
         recon_loss2 = nn.functional.mse_loss(x_recon2, x, reduction='sum')
         #计算两次的kl散度，也就是q(z)和p(z)之间的差距
         # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
