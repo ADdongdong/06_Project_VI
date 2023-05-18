@@ -24,7 +24,7 @@ class HVAE(nn.Module):
         self.encoder2 = nn.Sequential(
             nn.Linear(latent_size1, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, latent_size2*2)
+            nn.Linear(hidden_size2, latent_size2)
         )
         
         # First Decoder 2->
@@ -36,7 +36,7 @@ class HVAE(nn.Module):
         
         # Second Decoder
         self.decoder2 = nn.Sequential(
-            nn.Linear(latent_size2, hidden_size1),
+            nn.Linear(1, hidden_size1),
             nn.ReLU(),
             nn.Linear(hidden_size1, latent_size1),
             nn.ReLU(),
@@ -65,18 +65,17 @@ class HVAE(nn.Module):
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
         z1 = self.reparameterize(mu1, logvar1)
         mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        '''
-        print('mu2', mu2)
-        print('mu2', logvar2)
+        #print('mu2', mu2)
+        #print('mu2', logvar2)
 
         #这里对q(z|x)进行UHA优化
         uha = UHA(2, None, L_m=10, step_size=0.1)
         result = uha.sample(mu2, logvar2, 1)
-        print(result[0])
+        #print(result[0])
         uha_mu2 = torch.tensor(result[0][0]).requires_grad_(True)
-        uhs_logvar2 = torch.tensor(result[0][1]).requires_grad_(True)
-        '''
-        z2 = self.reparameterize(mu2, logvar2)
+        uha_logvar2 = torch.tensor(result[0][1]).requires_grad_(True)
+    
+        z2 = self.reparameterize(uha_mu2, uha_logvar2)
 
         # Decode 两次解码
         x_recon1 = self.decoder1(z1)
@@ -84,9 +83,9 @@ class HVAE(nn.Module):
         
         # Compute Loss
         #计算重构误差，就是经过vae前的数据和vae后的数据的区别 这一项就是ELBO中的交叉熵
-        #计算第一个重构误差，是代码输入和第第二次解码得到的重构误差
+        #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
         recon_loss1 = nn.functional.mse_loss(x_recon1, x, reduction='sum') 
-        #计算第二个重构误差，是第二次编码的输入和第一次解码的输出计算的重构误差
+        #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
         recon_loss2 = nn.functional.mse_loss(x_recon2, x, reduction='sum')
         #计算两次的kl散度，也就是q(z)和p(z)之间的差距
         # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
