@@ -235,3 +235,4 @@ ax[1].fill_between(african_nations["rugged"], african_nations["y_perc_5"], afric
 ax[1].plot(african_nations["rugged"], african_nations["true_gdp"], "o")
 ax[1].set(xlabel="Terrain Ruggedness Index", ylabel="log GDP (2000)", title="African Nations")
 plt.show()
+plt.savefig('./img/regression.jpg')

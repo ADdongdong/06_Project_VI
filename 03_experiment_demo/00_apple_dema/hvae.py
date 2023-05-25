@@ -1,6 +1,6 @@
+#这个文件也是hvae但是没有加mcmc作为对比实验
 import torch
 import torch.nn as nn
-import nflows 
 from tqdm import tqdm
 from UHA import UHA
 import torch.nn.functional as F
@@ -65,17 +65,7 @@ class HVAE(nn.Module):
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
         z1 = self.reparameterize(mu1, logvar1)
         mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        #print('mu2', mu2)
-        #print('mu2', logvar2)
-
-        #这里对q(z|x)进行UHA优化
-        uha = UHA(2, None, L_m=10, step_size=0.1)
-        result = uha.sample(mu2, logvar2, 1)
-        #print(result[0])
-        uha_mu2 = torch.tensor(result[0][0]).requires_grad_(True)
-        uha_logvar2 = torch.tensor(result[0][1]).requires_grad_(True)
-    
-        z2 = self.reparameterize(uha_mu2, uha_logvar2)
+        z2 = self.reparameterize(mu2, logvar2)
 
         # Decode 两次解码
         x_recon1 = self.decoder1(z1)
@@ -96,44 +86,59 @@ class HVAE(nn.Module):
         
         return total_loss
 
+
+
+import torch
+import torch.nn as nn
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+
+# 训练模型
+def main():
+    losses = [] #将训练中loss的变化情况保存在losses列表中
+    # 随机生成数据
+    x = torch.randn(1000, 1)
+    x = x.reshape((1, 1000))
+    # 创建模型、优化器和损失函数
+    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =2, hidden_size2= 2, latent_size2= 2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.MSELoss()
+
+    # 开始训练
+    num_epochs = 5000
+    pbar = tqdm(range(num_epochs))
+    for epoch in range(num_epochs):
+        # 前向传播
+        loss = model.forward(x)
+        losses.append(loss.detach().numpy())
+        # 反向传播和参数更新
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        description = f"Epoch {epoch}: Loss={loss:.2f}"
+        pbar.set_description(description)
+        pbar.update(1)
     
-'''
-    def compute_elbo(model, x, num_samples=10):
-        """
-        计算未校正的哈密顿动力学模型下的ELBO
-        参数：
-            model: 未校正的哈密顿动力学模型
-            x: 输入数据，大小为[batch_size, input_size]
-            num_samples: 采样数量
-        
-        返回：
-            elbo: ELBO（Evidence Lower Bound）
-        """
-        batch_size, input_size = x.size()
+    #绘制losses变化曲线图，并将其保存
+    # 绘制曲线图
+    x = np.arange(len(losses))
+    plt.plot(x, losses)
+    
+    # 添加标题和轴标签
+    plt.title('Loss over time')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.savefig('./01_img/losses_5000.jpg')
+    #将数据保存在excel表格中
+    df = pd.DataFrame(losses[3000:])
+    df.to_excel('./00_data/losses.xlsx', index=False)
+    #print('Epoch [{}/{}], Loss: {:.4f},'.format(epoch+1, num_epochs, loss.item()))
+    # 返回训练好的模型
+    return model
 
-        # 从后验分布q(z|x)中采样num_samples个样本(优化q(z|x))
-        z_samples = []
-        for i in range(num_samples):
-            #这里是用UHA来对q_z进行采样
-            z_q = model.q_z(x)
-            z_samples.append(z_q)
-
-        # 将样本堆叠成张量
-        z_samples = torch.stack(z_samples)
-
-        # 计算解码器p(x|z)的对数似然
-        x_logits = model.p_x(z_samples).view(num_samples, batch_size, -1)
-        log_likelihood = F.log_softmax(x_logits, dim=-1).sum(-1).mean(0)
-
-        # 计算后验分布q(z|x)与先验分布p(z|x)之间的KL散度
-        z_p = model.sample_prior(num_samples)
-        kl_divergence = torch.distributions.kl_divergence(
-            torch.distributions.Normal(z_samples.mean(0), z_samples.std(0)),
-            torch.distributions.Normal(z_p, torch.ones_like(z_p))
-        ).sum(-1).mean(0)
-
-        # 计算ELBO
-        elbo = log_likelihood - kl_divergence
-        return -elbo  # 返回负数，因为我们使用优化器最小化损失函数   
-'''
-   
+#主程序
+main()
