@@ -19,6 +19,7 @@ class UHA:
     
     
     # Define the target function(能量函数E)
+    # -logq(z1)
     def target_function(self, mu, logvar):
         # Compute the log probability of a normal distribution with mean mu and variance exp(logvar)
         return -0.5 * (mu**2 + torch.exp(logvar) - logvar - 1)
@@ -96,6 +97,7 @@ class UHA:
 
         return samples
     
+
 #测试函数测试优化mu和logvar的UHA
 def test1():
     #这里的mu和logvar模拟的是变分自编码器生成的mu和logvar
