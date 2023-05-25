@@ -1,0 +1,17 @@
+digraph {
+	a [label=a fillcolor=white shape=ellipse style=filled]
+	bA [label=bA fillcolor=white shape=ellipse style=filled]
+	bR [label=bR fillcolor=white shape=ellipse style=filled]
+	bAR [label=bAR fillcolor=white shape=ellipse style=filled]
+	sigma [label=sigma fillcolor=white shape=ellipse style=filled]
+	subgraph cluster_data {
+		label=data labeljust=r labelloc=b
+		obs [label=obs fillcolor=gray shape=ellipse style=filled]
+	}
+	bA -> obs
+	bAR -> obs
+	a -> obs
+	bR -> obs
+	sigma -> obs
+	distribution_description_node [label="a ~ Normal\lbA ~ Normal\lbR ~ Normal\lbAR ~ Normal\lsigma ~ Uniform\lobs ~ Normal\l" shape=plaintext]
+}
