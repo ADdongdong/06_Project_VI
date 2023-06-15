@@ -4,6 +4,7 @@ from tqdm import tqdm
 from UHA import UHA
 import torch.nn.functional as F
 import pyro
+from pyro.infer import SVI, Trace_ELBO
 
 
 
@@ -67,11 +68,27 @@ class HVAE(nn.Module):
 
     def forward(self, x):
         # Encode 两次编码
+        #第一次编码
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
         z1 = self.reparameterize(mu1, logvar1)
+
+        #第二次编码加入8个先验A1-A8
+        #这8个先验和第一次编码得到的z的关系是什么？
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
+        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
         mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
         #print('mu2', mu2)
         #print('mu2', logvar2)
+
+        #第二次编码器得到的参数放入MCMC中进行优化10步左右
+        #并计算这一部分得到的loss函数
+
+        
 
         #这里对q(z|x)进行UHA优化
         uha = UHA(2, None, L_m=10, step_size=0.1)
@@ -86,7 +103,8 @@ class HVAE(nn.Module):
         x_recon1 = self.decoder1(z1)
         x_recon2 = self.decoder2(z2)
         
-        # Compute Loss
+        
+        # 计算loss函数
         #计算重构误差，就是经过vae前的数据和vae后的数据的区别 这一项就是ELBO中的交叉熵
         #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
         recon_loss1 = nn.functional.mse_loss(x_recon1, x, reduction='sum') 
