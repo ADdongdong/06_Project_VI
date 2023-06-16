@@ -5,6 +5,7 @@ import nflows.distributions as distributions
 import nflows.transforms as transforms
 import nflows.flows as flows
 import numpy as np
+from tqdm import tqdm
 
 
 #数据处理
@@ -33,22 +34,26 @@ def define_model():
 
 #定义训练模型的函数
 def train_model(distribution):
-    distribution_list = []
+    sample_data = []
     optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
     for j in range(8):
         #每次取出一个特征的数据进行学习
-        data_ = torch.tensor(data=[j])
-        print(data_.shape)
+        data_ = torch.tensor(data[j])
+        #print(data_.shape)
         data_ = data_.reshape((len(data_), 1)).float()
-        print(data_.shape)
-        print(data_.dtype)
-        for i in range(1000):
+        #print(data_.shape)
+        #print(data_.dtype)
+        pbar = tqdm(range(500))
+        for i in pbar:
             optimizer.zero_grad()
             loss = -distribution.log_prob(inputs=data_).mean()
             loss.backward()
             optimizer.step()
-            if i % 100 == 0:
-                print(i)
+
+            description = f"Loss={loss:.2f}"
+            pbar.set_description(description)
+            #if i % 100 == 0:
+            #   print(i)
         #将每次训练的结果保存下来
         model_name = "./normalizingFlowModel/OptimA" + str(j+1) +".pt"
         torch.save(distribution.state_dict(), model_name)
@@ -56,13 +61,30 @@ def train_model(distribution):
         sapmle_ = distribution.sample(1000)
         sample_data.append(sapmle_.detach().numpy())
 
+    return sample_data
+
+
+#定义计算均值和方差的函数
+def mena_var(sample_data):
+    result = []
+    for i in sample_data:
+        mean = np.mean(i)
+        var = np.var(i)
+        result.append([mean, var])
+    return result
 
 #定义数组，保存Ai采样出来的数据
-sample_data = []
 #通过训练这个流模型来学习这个分布
 distribution = define_model()
-train_model(distribution)
+sample_data = train_model(distribution)
+#计算均值和方差
+mean_var_list = mena_var(sample_data)
+print(mean_var_list)
+
 #将采样出来的数据保存起来
 sample_data = np.array(sample_data)
+#将计算的均值和方差也保存起来
+mean_var_list = np.array(mean_var_list)
+np.save("./00_data/mean_var_list.npy", mean_var_list)
 np.save('./00_data/sample_data.npy', sample_data)
 

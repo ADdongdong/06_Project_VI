@@ -5,12 +5,19 @@ from UHA import UHA
 import torch.nn.functional as F
 import pyro
 from pyro.infer import SVI, Trace_ELBO
-
+import numpy as np
 
 
 class HVAE(nn.Module):
     def __init__(self, input_size, hidden_size1, latent_size1, hidden_size2, latent_size2):
         super(HVAE, self).__init__()
+        
+        #定义一个成员变量，这个变量在初始化HVAE的时候就创建
+        #创建一个8行1列的列向量，每一行都是A1+zi线性组合的结果 
+        self.List = torch.empty(8, 2)
+        
+        #通过numpy读取数据,这个数据在模型被创建的时候就导入
+        self.a1_a8 = np.load('./00_data/mean_var_list.npy', allow_pickle=True)
         
         # First Encoder 1000 -> 2
         self.encoder1 = nn.Sequential(
@@ -21,9 +28,9 @@ class HVAE(nn.Module):
             nn.Linear(64, latent_size1*2)
         )
         
-        # Second Encoder 2000 -> 2
+        # Second Encoder 8 -> 2
         self.encoder2 = nn.Sequential(
-            nn.Linear(latent_size1, hidden_size2),
+            nn.Linear(2, hidden_size2),
             nn.ReLU(),
             nn.Linear(hidden_size2, latent_size2)
         )
@@ -43,6 +50,7 @@ class HVAE(nn.Module):
             nn.ReLU(),
             nn.Linear(latent_size1, input_size)
         )
+        
         
     def encode(self, x):
         z1 = self.encoder1(x)
@@ -72,21 +80,19 @@ class HVAE(nn.Module):
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
         z1 = self.reparameterize(mu1, logvar1)
 
-        #第二次编码加入8个先验A1-A8
-        #这8个先验和第一次编码得到的z的关系是什么？
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        mu2, logvar2 = self.encoder2(z1).chunk(2, dim=-1)
-        #print('mu2', mu2)
-        #print('mu2', logvar2)
+        #将第一次编码的结果和通过正则化流学习出来的a1-a8这些先验做和
+        for i in range(8):
+            A1 = self.reparameterize(torch.tensor(self.a1_a8[i][0]), torch.tensor(self.a1_a8[i][1]))
+            aizi = A1 + z1
+            print("aizi:",aizi)
+            self.List[i] = aizi
+        print("self.List:", self.List)
 
-        #第二次编码器得到的参数放入MCMC中进行优化10步左右
-        #并计算这一部分得到的loss函数
+        
+        #将第一次编码和a1-a8作和的结果作为第二次编码的输入
+        mu2, logvar2 = self.encoder2(self.List).chunk(2, dim=-1)
+        print('mu2', mu2)
+        print('logvar2', logvar2)
 
         
 
