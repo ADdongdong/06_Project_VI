@@ -56,6 +56,7 @@ class HVAE(nn.Module):
 
         self.criteon = nn.MSELoss()
 
+    #定义重参数化函数
     def forward(self, x):
         """
         :param x: [b, 1, 28, 28]
@@ -98,4 +99,5 @@ class HVAE(nn.Module):
             torch.pow(sigma1, 2) -
             torch.log(1e-8 + torch.pow(sigma1, 2)) - 1
         ) / (batchsz * 28 * 28)
+
         return x_hat, kld2

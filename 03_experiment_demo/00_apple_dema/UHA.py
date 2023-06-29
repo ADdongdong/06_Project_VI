@@ -22,7 +22,7 @@ class UHA:
     # -logq(z1)
     def target_function(self, mu, logvar):
         # Compute the log probability of a normal distribution with mean mu and variance exp(logvar)
-        return -0.5 * (mu**2 + torch.exp(logvar) - logvar - 1)
+        return -0.5 * torch.sum(mu**2 + torch.exp(logvar) - logvar - 1)
 
 
 

@@ -8,13 +8,14 @@ from pyro.infer import SVI, Trace_ELBO
 import numpy as np
 
 
+
 class HVAE(nn.Module):
     def __init__(self, input_size, hidden_size1, latent_size1, hidden_size2, latent_size2):
         super(HVAE, self).__init__()
         
         #定义一个成员变量，这个变量在初始化HVAE的时候就创建
         #创建一个8行1列的列向量，每一行都是A1+zi线性组合的结果 
-        self.List = torch.empty(8, 2)
+        self.List = torch.empty(8, 2)#, requires_grad=True)
         
         #通过numpy读取数据,这个数据在模型被创建的时候就导入
         self.a1_a8 = np.load('./00_data/mean_var_list.npy', allow_pickle=True)
@@ -82,17 +83,19 @@ class HVAE(nn.Module):
 
         #将第一次编码的结果和通过正则化流学习出来的a1-a8这些先验做和
         for i in range(8):
-            A1 = self.reparameterize(torch.tensor(self.a1_a8[i][0]), torch.tensor(self.a1_a8[i][1]))
+            a_mu = torch.tensor(self.a1_a8[i][0], requires_grad=True)
+            a_logvar = torch.tensor(self.a1_a8[i][1], requires_grad=True)
+            A1 = self.reparameterize(a_mu, a_logvar)
             aizi = A1 + z1
-            print("aizi:",aizi)
-            self.List[i] = aizi
-        print("self.List:", self.List)
+            #print("aizi:",aizi)
+            self.List[i] = aizi.data
 
-        
+        #根据第一次编码的结果和专家先验进行8次编码
+                
         #将第一次编码和a1-a8作和的结果作为第二次编码的输入
         mu2, logvar2 = self.encoder2(self.List).chunk(2, dim=-1)
-        print('mu2', mu2)
-        print('logvar2', logvar2)
+        #print('mu2', mu2)
+        #print('logvar2', logvar2)
 
         
 
