@@ -14,7 +14,8 @@ def main():
     x = torch.randn(1000, 1)
     x = x.reshape((1, 1000))
     # 创建模型、优化器和损失函数
-    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =2, hidden_size2= 2, latent_size2= 2)
+    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =4, hidden_size2= 2, latent_size2= 4)
+    print(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.MSELoss()
 
