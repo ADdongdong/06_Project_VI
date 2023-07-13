@@ -16,6 +16,15 @@ class HVAE(nn.Module):
         #创建一个8行1列的列向量，每一行都是A1+zi线性组合的结果 
         self.List = torch.empty(8, 2)#, requires_grad=True)
         
+        # 定义均方差对象
+        self.Loss_MSE = torch.nn.MSELoss()
+
+        # 定义投影定理系数计算要用的线性模型
+        self.linear_regression = torch.nn.Linear(8,1)
+
+        #定义随机梯度下降优化器
+        self.optim_SGD = torch.optim.SGD(self.linear_regression.parameters(), lr=0.01)
+
         #通过numpy读取数据,这个数据在模型被创建的时候就导入
         self.a1_a8 = np.load('./00_data/mean_var_list.npy', allow_pickle=True)
         
@@ -31,15 +40,15 @@ class HVAE(nn.Module):
         # 第二次编码，将8个因素和第一次编码的结果做和，
         # 然后分成8个编码器分别进行编码
         self.encoder2 = nn.Sequential(
-            nn.Linear(latent_size1, hidden_size2),
+            nn.Linear(latent_size1*2, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, latent_size2)
+            nn.Linear(hidden_size2, 16)
         )
         
         # 对第二次编码的结果进行投影定理运算
         # 对投影定理运算的结果放入第三层编码器
         self.encoder3 = nn.Sequential(
-            nn.Linear(2, hidden_size2),
+            nn.Linear(24, hidden_size2),
             nn.ReLU(),
             nn.Linear(hidden_size2, latent_size2*2)
         )
@@ -68,26 +77,34 @@ class HVAE(nn.Module):
     #重参数化
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
+        #生成噪声
         eps = torch.randn_like(std)
         z = mu + eps * std
         return z
     
 
-    #将A1-A8这8个先验因素加入到网络中，和第一次编码的结果做线性和
-    def AddA1_A8_encoder(self, index, z1):
+    #将A1-A8这8个先验因素加入到网络中,CVAE
+    def catA1_A8_encoder(self, index, z1):
+        #将这8个因素，分别与第一次编码的结果做cat
+        #作为第二次编码的输入，即为条件变分自编码器
         a_mu = torch.tensor(self.a1_a8[index][0], requires_grad=True)
         a_logvar = torch.tensor(self.a1_a8[index][1], requires_grad=True)
-        A1 = self.reparameterize(a_mu, a_logvar)
-        # 经过正则化流学习出来的先验和第一次编码学习出来的先验做线性和
-        aizi = A1 + z1
+        A1 = self.reparameterize(a_mu, a_logvar) 
+        A1 = A1.expand([1, 8])
+
+        # 将8个因素的与待输入编码器的数据做cat操作，即为条件变分自编码
+        aizi = torch.cat([A1, z1], dim = 1)
+
         #将计算的结果送入encoder2
         mu2, logvar2 = self.encoder2(aizi).chunk(2, dim=-1)
         return mu2, logvar2
 
 
-    #定义第二次编码的函数
+    # 定义第二次编码的函数CVAE
     def Encoder2(self, z1):
         """
+        为条件变分自编码，要将8个因素作为label与数据进行拼接,
+        然后整体放入编码器中，这样就是CVAE
             这个函数将A1-A8个8个先验因素加入到的编码器中
             并且，以8个因素和第一次编码的结果第二次编码的输入
             第二次编码对于8个因素有对应的8个编码器
@@ -103,18 +120,22 @@ class HVAE(nn.Module):
         encoder2_logvar = []
         for i in range(8):
             #对8个因素进行编码，这里编码的时候，会添加进去使用正则化流计算出来的先验
-            mu2, logvar2 = self.AddA1_A8_encoder(i, z1)
+            mu2, logvar2 = self.catA1_A8_encoder(i, z1)
             encoder2_mu.append(mu2)
             encoder2_logvar.append(logvar2)
         return encoder2_mu, encoder2_logvar
 
 
     #定义第三次编码函数
-    def Encoder3(self, mu_list, logvar_list):
+    def Encoder3(self, projection_list, mu_list, logvar_list):
         """
-        第三次编码接受的参数是8个因素经过投影定理处理过后因素。
+            第三次编码,也是条件编码，将encoder2学习出来的zi_2放入编码器。
+            将使用投影地理算出来的元素作为条件放入编码器中。
+            将正则化流学习出来的先验A1-A8也放入其中
         参数：
-            包含8个因素经过重参数以后z1-z8的list
+            projection_list 经过投影定理算出的a1`-a8`
+            mu_list 第二次编码得到的8个因素的mu列表
+            logvar_list 第二次编码得到的8个因素的logvar列表
         返回：
             返回8个因素经过第三次编码以后的均值和方差，以待UHA对mu和logvar进行优化
         """
@@ -123,8 +144,19 @@ class HVAE(nn.Module):
         for i in range(8):
             # 进项重参数化
             zi =  self.reparameterize(mu_list[i], logvar_list[i])
-            #print(zi.size())
-            mu ,logvar = self.encoder3(zi).chunk(2, dim=-1)
+        
+            #将A1和A8加入
+            a_mu = torch.tensor(self.a1_a8[i][0], requires_grad=True)
+            a_logvar = torch.tensor(self.a1_a8[i][1], requires_grad=True)
+            Ai = self.reparameterize(a_mu, a_logvar) 
+            Ai = Ai.expand([1, 8])
+
+
+            # 将zi和投影定理计算出来的结果做cat操作，作为条件
+            aizi = torch.cat([zi, projection_list[i], Ai], dim=1)
+            
+            # 放入第三层编码器编码
+            mu ,logvar = self.encoder3(aizi).chunk(2, dim=-1)
             encoder3_logvar.append(logvar)
             encoder3_mu.append(mu)
         return encoder3_mu, encoder3_logvar
@@ -159,45 +191,66 @@ class HVAE(nn.Module):
 
     #定义投影定理计算函数
     def Projection(self, encoder2_mu_list, encoder2_logvar_list):
-        """
-        使用投影定理，对第二次编码，8个编码器得到的8个因素进行投影定理计算
-        参数：
-            第一个参数为8个因素编码得到的均值列表
-            第二个参数为8个因素编码得到的方差列表
-        返回：
-            返回8个因素经过投影定理计算以后得出的新结果，
-            这个结果将会放入第三次编码器中。所以最后使用重参数对8个因素进行处理。
-            最后的结果放在一个list中。
-            第三次编码还是8个编码器
-        """
-        project_mu_list = []
-        project_logvar_list = []
+        '''
+            投影定理，第二次编码有8个编码器
+            这8个编码器出来8个zi, 我们假设这8个zi都是8维的向量
+            然后拿出来z1,用z2-z8去线性表示z1
+            z1= a2*z2 + a2*z3 + ... + a2*z8
+            最后得到的系数就是我们要求的结果。
+            这里的a2-a8可以用随机梯度下降将系数学习出来
+        '''
+        ai_list = []
+        for i, j in zip(encoder2_mu_list, encoder2_logvar_list):
+            zi_2 = self.reparameterize(i, j)
+            ai_list.append(zi_2)
+        
+        #print("len(ai_list)", len(ai_list))
+
+        #定义一个0向量
+        zero_vector = torch.zeros([1, 8], requires_grad=True)
+        #print("zero_vector", zero_vector)
+        #ai_list 中保存的就是a1-a8的8个向量
+        #定义project_list,ai投影在a1-a8上的参数向量保存在其中
+        projection_list = []
         for i in range(8):
-            target_factor_mu = encoder2_mu_list[i]
-            target_factor_logvar = encoder2_logvar_list[i]
-            #收集剩余的额7个因素的均值方差
-            temp_list_mu = []
-            temp_list_logvar = []
-            for j in range(8):
-                if j != i:
-                    temp_list_mu.append(encoder2_mu_list[j])
-                    temp_list_logvar.append(encoder2_logvar_list[j])
+            #定义输入特征和目标值
+            target_vector = ai_list[i][0]
+            
+            #print("target_vector", target_vector)
+            #定义7个基向量
+            intput_vector = ai_list[:i] + [zero_vector]+ ai_list[i+1:]
+            #将数据转化为线性模型可以接受的张量
+            intput_vector = torch.cat(intput_vector).reshape(len(intput_vector), -1)
 
-            #计算投影向量，即，计算这7个因素的平均值
-            projection_mu = torch.mean(torch.cat(temp_list_mu, dim=0), dim=0)
-            projection_logvar = torch.mean(torch.cat(temp_list_logvar, dim=0), dim=0)
+            
+            num_epches = 1000
+            for epoch in range(num_epches):
+                #向前传播
+                prediction = self.linear_regression(torch.tensor(intput_vector))
 
-            #计算投影系数
-            projection_coefficients_mu = projection_mu / torch.norm(target_factor_mu)
-            projection_coefficients_logvar = projection_logvar / torch.norm(target_factor_logvar)
-            project_mu_list.append(projection_coefficients_mu)
-            project_logvar_list.append(projection_coefficients_logvar)
+                #计算损失
+                loss = self.Loss_MSE(prediction.squeeze(), target_vector)
 
-        return project_mu_list, project_logvar_list
+                #反向传播和优化
+                self.optim_SGD.zero_grad() #梯度清零
+                # 保存中间的梯度
+                loss.backward(retain_graph=True) #计算梯度
+                self.optim_SGD.step() #更新参数
+            
+            #获取线性回归模型的权重
+            weight = self.linear_regression.weight.data
+            # print("weight.size", weight.size())
+            # print("weight", weight)
+
+            #将每个因素投影的结果添加到结果列表中
+            projection_list.append(weight)
+            print("第A" + str(i+1) + "个因素的投影计算完毕...")
+
+        return  projection_list
 
 
     #
-    def loss_function(self,):
+    def loss_function(self, x_recon1, x_recon2, x1, x2):
         """
         计算整个层次变分编码器的误差函数，包括重构误差和KL散度
         参数：
@@ -208,9 +261,9 @@ class HVAE(nn.Module):
         # 计算loss函数
         #计算重构误差，就是经过vae前的数据和vae后的数据的区别 这一项就是ELBO中的交叉熵
         #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
-        recon_loss1 = nn.functional.mse_loss(x_recon1, x, reduction='sum') 
+        recon_loss1 = nn.functional.mse_loss(x_recon1, x1, reduction='sum') 
         #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
-        recon_loss2 = nn.functional.mse_loss(x_recon2, x, reduction='sum')
+        recon_loss2 = nn.functional.mse_loss(x_recon2, x2, reduction='sum')
         #计算两次的kl散度，也就是q(z)和p(z)之间的差距
         # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         # 在这里我们一般认为p(z|x)为N(0,1)
@@ -219,33 +272,33 @@ class HVAE(nn.Module):
         total_loss = recon_loss1 + recon_loss2 + kld_loss1 + kld_loss2
 
         return total_loss 
-        pass
 
 
     def forward(self, x):
         # Encode 3次编码
         #第一次编码
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
+        print("第一次编码结束...")
         z1 = self.reparameterize(mu1, logvar1)
 
         #第二次编码
         encoder2_mu, encoder2_logvar = self.Encoder2(z1)
-        print("encoder_mu", len(encoder2_mu))
-        print("encoder_logvar", len(encoder2_logvar))
-        print("mu2.size:", encoder2_mu[0].size())
+        print("第二次编码结束...")
+
+
         #投影定理计算第三次编码的输入
-        project_mu, project_logvar = self.Projection(encoder2_mu, encoder2_logvar)
+        project_list  = self.Projection(encoder2_mu, encoder2_logvar)
 
-        print("project_mu:", project_mu)
-        print("project_logvar:", project_logvar)
 
-        #第三次编码
-        mu3_list, logvar3_list = self.Encoder3(project_mu, project_logvar)
+        #第三次编码,条件变分自编码
+        mu3_list, logvar3_list = self.Encoder3(project_list, encoder2_mu, encoder2_logvar)
+        print("第三次编码结束...")
         print("len(mu3_list)", len(mu3_list)) 
         print("mu3.tensor.size", mu3_list[0].size())
 
         #这里对第3次编码的结果并结果投影定理计算的结果进行UHA优化
         z3_list = self.UHA_Optim(mu3_list, logvar3_list)
+        #print(z3_list)
 
 
         # Decode 3次解码,

@@ -14,14 +14,14 @@ def main():
     x = torch.randn(1000, 1)
     x = x.reshape((1, 1000))
     # 创建模型、优化器和损失函数
-    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =4, hidden_size2= 2, latent_size2= 4)
+    model = HVAE(input_size=1000, hidden_size1=256, latent_size1 =8, hidden_size2= 2, latent_size2= 4)
     print(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.MSELoss()
 
     # 开始训练
     num_epochs = 4000
-    pbar = tqdm(range(num_epochs))
+    #pbar = tqdm(range(num_epochs))
     for epoch in range(num_epochs):
         # 前向传播
         loss = model.forward(x)
@@ -31,9 +31,9 @@ def main():
         loss.backward()
         optimizer.step()
 
-        description = f"Epoch {epoch}: Loss={loss:.2f}"
-        pbar.set_description(description)
-        pbar.update(1)
+        # description = f"Epoch {epoch}: Loss={loss:.2f}"
+        # pbar.set_description(description)
+        # pbar.update(1)
     
     #绘制losses变化曲线图，并将其保存
     # 绘制曲线图
