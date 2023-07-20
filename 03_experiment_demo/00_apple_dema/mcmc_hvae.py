@@ -245,7 +245,7 @@ class HVAE(nn.Module):
 
             #将每个因素投影的结果添加到结果列表中
             projection_list.append(weight)
-            print("第A" + str(i+1) + "个因素的投影计算完毕...")
+            #print("第A" + str(i+1) + "个因素的投影计算完毕...")
 
         return  projection_list
 
@@ -299,7 +299,7 @@ class HVAE(nn.Module):
             #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
             recon_loss1 = nn.functional.mse_loss(rec_list[2][i], input_list[0], reduction='sum') 
             recon_loss_x = recon_loss_x + recon_loss1
-        print("重构误差1计算成功")
+        #print("重构误差1计算成功")
         
         #计算重构误差2
         recon_loss_z1 = torch.tensor(0)
@@ -307,7 +307,7 @@ class HVAE(nn.Module):
             #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
             recon_loss2 = nn.functional.mse_loss(rec_list[1][i], input_list[1], reduction='sum')
             recon_loss_z1 = recon_loss_z1 + recon_loss2
-        print("重构误差2计算成功")
+        #print("重构误差2计算成功")
 
         #计算重构误差3
         recon_loss_z2 = torch.tensor(0) 
@@ -316,7 +316,7 @@ class HVAE(nn.Module):
             z2 = self.reparameterize(mu_logvar[1][0][i], mu_logvar[1][1][i])
             recon_loss3 = nn.functional.mse_loss(rec_list[0][i], z2, reduction='sum')
             recon_loss_z2 = recon_loss_z2 + recon_loss3
-        print("重构误差3计算成功")
+        #print("重构误差3计算成功")
 
 
         #计算3次的kl散度，也就是q(z)和p(z)之间的差距
@@ -337,12 +337,12 @@ class HVAE(nn.Module):
         # Encode 3次编码
         #第一次编码
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
-        print("第一次编码结束...")
+        #print("第一次编码结束...")
         z1 = self.reparameterize(mu1, logvar1)
 
         #第二次编码
         encoder2_mu, encoder2_logvar = self.Encoder2(z1)
-        print("第二次编码结束...")
+        #print("第二次编码结束...")
 
 
         #投影定理计算第三次编码的输入
@@ -351,28 +351,28 @@ class HVAE(nn.Module):
 
         #第三次编码,条件变分自编码
         mu3_list, logvar3_list = self.Encoder3(project_list, encoder2_mu, encoder2_logvar)
-        print("第三次编码结束...")
-        print("len(mu3_list)", len(mu3_list)) 
-        print("mu3.tensor.size", mu3_list[0].size())
+        # print("第三次编码结束...")
+        # print("len(mu3_list)", len(mu3_list)) 
+        # print("mu3.tensor.size", mu3_list[0].size())
 
         #这里对第3次编码的结果并结果投影定理计算的结果进行UHA优化
         z3_list = self.UHA_Optim(mu3_list, logvar3_list)
-        print(f"len(z3_list){len(z3_list)}")
-        print(f"size(z3_list){z3_list[0].size()}")
+        #print(f"len(z3_list){len(z3_list)}")
+        #print(f"size(z3_list){z3_list[0].size()}")
 
 
         # Decode 3次解码,
         #第一次解码，输入为z3是uha优化过的数据
         x_recon1 = self.Decoder(z3_list, self.decoder1)
-        print("第一次解码完成")
+        #print("第一次解码完成")
             
         #进行第二次解码
         x_recon2 = self.Decoder(x_recon1, self.decoder2)
-        print("第二次解码完成")
+        #print("第二次解码完成")
 
         #进行第三次解码
         x_recon3 = self.Decoder(x_recon2, self.decoder3) 
-        print("第三次解码完成")
+        #print("第三次解码完成")
         
         #打包要计算loss所要用到的数据
         recon_list = [x_recon1, x_recon2, x_recon3]
