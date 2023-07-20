@@ -31,7 +31,7 @@ def main():
         loss.backward()
         optimizer.step()
 
-        print(f"Epoch[{epoch}/{num_epochs}]], batch_loss:{loss}")
+        print(f"Epoch[{epoch}/{num_epochs}], batch_loss:{loss}")
         # description = f"Epoch {epoch}: Loss={loss:.2f}"
         # pbar.set_description(description)
         # pbar.update(1)
