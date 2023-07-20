@@ -57,18 +57,18 @@ class HVAE(nn.Module):
         self.decoder1 = nn.Sequential(
             nn.Linear(12, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, 16)
+            nn.Linear(hidden_size2, 8)
         )
         
         # Second Decoder
         self.decoder2 = nn.Sequential(
-            nn.Linear(24, hidden_size2),
+            nn.Linear(16, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, 16),
+            nn.Linear(hidden_size2, 8),
         )
 
         self.decoder3 = nn.Sequential(
-            nn.Linear(24, hidden_size1),
+            nn.Linear(16, hidden_size1),
             nn.ReLU(),
             nn.Linear(hidden_size1, 1000)
         )
@@ -207,6 +207,7 @@ class HVAE(nn.Module):
         #print("len(ai_list)", len(ai_list))
 
         #定义一个0向量
+        
         zero_vector = torch.zeros([1, 8], requires_grad=True)
         #print("zero_vector", zero_vector)
         #ai_list 中保存的就是a1-a8的8个向量
@@ -282,7 +283,7 @@ class HVAE(nn.Module):
         
 
     #定义loss函数
-    def loss_function(self, x_recon1, x_recon2, x1, x2):
+    def loss_function(self, rec_list, input_list, mu_logvar):
         """
         计算整个层次变分编码器的误差函数，包括重构误差和KL散度
         参数：
@@ -290,21 +291,44 @@ class HVAE(nn.Module):
         返回值：
             总和计算出来的loss值
         """
-        # 计算loss函数
-        #计算重构误差，就是经过vae前的数据和vae后的数据的区别 这一项就是ELBO中的交叉熵
-        #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
-        recon_loss1 = nn.functional.mse_loss(x_recon1, x1, reduction='sum') 
-        #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
-        recon_loss2 = nn.functional.mse_loss(x_recon2, x2, reduction='sum')
-        #重构误差3：
+        total_loss = torch.tensor(0)
+
+        #计算重构误差1
+        recon_loss_x = torch.tensor(0)
+        for i in range(8):
+            #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
+            recon_loss1 = nn.functional.mse_loss(rec_list[2][i], input_list[0], reduction='sum') 
+            recon_loss_x = recon_loss_x + recon_loss1
+        print("重构误差1计算成功")
+        
+        #计算重构误差2
+        recon_loss_z1 = torch.tensor(0)
+        for i in range(8):
+            #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
+            recon_loss2 = nn.functional.mse_loss(rec_list[1][i], input_list[1], reduction='sum')
+            recon_loss_z1 = recon_loss_z1 + recon_loss2
+        print("重构误差2计算成功")
+
+        #计算重构误差3
+        recon_loss_z2 = torch.tensor(0) 
+        for i in range(8):
+            #通过mu_list和logvar_list进行重参数化
+            z2 = self.reparameterize(mu_logvar[1][0][i], mu_logvar[1][1][i])
+            recon_loss3 = nn.functional.mse_loss(rec_list[0][i], z2, reduction='sum')
+            recon_loss_z2 = recon_loss_z2 + recon_loss3
+        print("重构误差3计算成功")
 
 
-        #计算两次的kl散度，也就是q(z)和p(z)之间的差距
+        #计算3次的kl散度，也就是q(z)和p(z)之间的差距
         # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         # 在这里我们一般认为p(z|x)为N(0,1)
-        kld_loss1 = -0.5 * torch.sum(1 + logvar1 - mu1.pow(2) - logvar1.exp())
-        kld_loss2 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
-        total_loss = recon_loss1 + recon_loss2 + kld_loss1 + kld_loss2
+        # kld_loss1 = -0.5 * torch.sum(1 + logvar1 - mu1.pow(2) - logvar1.exp())
+        # kld_loss2 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
+        # kld_loss3 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
+        
+        total_loss_tmp = recon_loss_x + recon_loss_z1 + recon_loss_z2 
+
+        total_loss = total_loss_tmp + total_loss
 
         return total_loss 
 
@@ -350,8 +374,12 @@ class HVAE(nn.Module):
         x_recon3 = self.Decoder(x_recon2, self.decoder3) 
         print("第三次解码完成")
         
+        #打包要计算loss所要用到的数据
+        recon_list = [x_recon1, x_recon2, x_recon3]
+        input_list = [x, z1]
+        mu_logvar = [[mu1, logvar1], [encoder2_mu, encoder2_logvar], [mu3_list, logvar3_list]]
         #计算loss这个变分自编码器的Loss函数
-        total_loss = self.loss_function()
+        total_loss = self.loss_function(recon_list, input_list, mu_logvar)
 
         return total_loss
 
