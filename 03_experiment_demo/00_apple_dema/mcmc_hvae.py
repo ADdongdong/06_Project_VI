@@ -322,6 +322,7 @@ class HVAE(nn.Module):
         #计算3次的kl散度，也就是q(z)和p(z)之间的差距
         # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         # 在这里我们一般认为p(z|x)为N(0,1)
+        
         # kld_loss1 = -0.5 * torch.sum(1 + logvar1 - mu1.pow(2) - logvar1.exp())
         # kld_loss2 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
         # kld_loss3 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
