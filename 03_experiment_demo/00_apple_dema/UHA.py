@@ -1,5 +1,4 @@
 import torch
-from tqdm import tqdm
 
 
 class UHA:
@@ -68,12 +67,12 @@ class UHA:
         #初始化动量momentum_current 
         momentum_current = torch.randn_like(mu_init).requires_grad_(True)
 
-        #使用HMC步骤进行L_m次采样，并更新mu, logvar, momentum
+        #使用HMC步骤进行L_m次优化，并更新mu, logvar, momentum
         for i in range(self.L_m):
             mu_current, logvar_current, momentum_current = self.HMC_step(mu_current, logvar_current, momentum_current)
 
         #UHA算法去掉了拒绝-接受步骤，直接进行采样
-        return mu_current, logvar_current
+        return [[mu_current, logvar_current]]
 
         
 

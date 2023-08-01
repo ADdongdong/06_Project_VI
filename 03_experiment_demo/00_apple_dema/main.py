@@ -20,7 +20,7 @@ def main():
     criterion = nn.MSELoss()
 
     # 开始训练
-    num_epochs = 4000
+    num_epochs = 400
     #pbar = tqdm(range(num_epochs))
     for epoch in range(num_epochs):
         # 前向传播

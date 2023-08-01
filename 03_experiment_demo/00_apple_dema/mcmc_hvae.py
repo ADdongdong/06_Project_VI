@@ -34,7 +34,8 @@ class HVAE(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_size1, 64),
             nn.ReLU(),
-            nn.Linear(64, latent_size1*2)
+            nn.Linear(64, latent_size1*2),
+            nn.Sigmoid()
         )
         
         # 第二次编码，将8个因素和第一次编码的结果做和，
@@ -42,7 +43,8 @@ class HVAE(nn.Module):
         self.encoder2 = nn.Sequential(
             nn.Linear(latent_size1*2, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, 16)
+            nn.Linear(hidden_size2, 16),
+            nn.Sigmoid()
         )
         
         # 对第二次编码的结果进行投影定理运算
@@ -50,21 +52,26 @@ class HVAE(nn.Module):
         self.encoder3 = nn.Sequential(
             nn.Linear(24, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, latent_size2*2)
+            nn.Linear(hidden_size2, latent_size2*2),
+            nn.Sigmoid()
         )
         
         # First Decoder 2->
         self.decoder1 = nn.Sequential(
             nn.Linear(12, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, 8)
+            # 解码的时候，也先得到均值和方差
+            # 然后重采样得到z',将z'放入下一层解码器
+            nn.Linear(hidden_size2, 8*2),
+            nn.Sigmoid()
         )
         
         # Second Decoder
         self.decoder2 = nn.Sequential(
             nn.Linear(16, hidden_size2),
             nn.ReLU(),
-            nn.Linear(hidden_size2, 8),
+            nn.Linear(hidden_size2, 8*2),
+            nn.Sigmoid()
         )
 
         self.decoder3 = nn.Sequential(
@@ -176,7 +183,9 @@ class HVAE(nn.Module):
         z3_list = []
         for i in range(8):
             uha = UHA(2, None, L_m=10, step_size=0.1)
-            result = uha.sample(mu_list[i], logvar_list[i], 1)
+            #result = uha.sample(mu_list[i], logvar_list[i], 1)
+            result = uha.UHA_step(mu_list[i], logvar_list[i])
+
             #print(result[0])
             uha_mu2 = torch.tensor(result[0][0]).requires_grad_(True)
             uha_logvar2 = torch.tensor(result[0][1]).requires_grad_(True)
@@ -260,8 +269,9 @@ class HVAE(nn.Module):
             返回值：
                 返回当前次编码器8个因素编码的结果所组成的列表
         """
-        # 定义第一次加码的结果
-        decoder_rec_list = []
+        # 定义一次解码的结果的结果
+        mu_list = [] 
+        var_list = []
         # 对于条件变分自编码器，解码的时候也要将条件加进去
         for index in range(8):
             a_mu = torch.tensor(self.a1_a8[index][0], requires_grad=True)
@@ -272,72 +282,63 @@ class HVAE(nn.Module):
             aizi = torch.cat([z_list[index] , Ai], dim=1)
             #print(f"aizi.siez{aizi.size()}")
             #进行Decoder1解码
-            di = decoder(aizi)
+            mu, var = decoder(aizi).chunk(2, dim= -1)
 
-            #将因素i第一次解码的结果添加到decoder1_rec_list中
-            decoder_rec_list.append(di)
+            #将因素i第一次解码的结果添加到mu_list和var_list中
+            mu_list.append(mu)
+            var_list.append(var)
 
-        return decoder_rec_list
+        return [mu_list, var_list]
 
 
         
 
     #定义loss函数
-    def loss_function(self, rec_list, input_list, mu_logvar):
+    def loss_function(self, var, en_mu, de_mu):
         """
-        计算整个层次变分编码器的误差函数，包括重构误差和KL散度
-        参数：
-            每层编码器的输入和输出
-        返回值：
-            总和计算出来的loss值
+        计算loss函数
+            Learning Hierarchical Variational Autoencoders 
+            with Mutual Information Maximization for Autoregressive Sequence Modeling
+        encoder:q decode:p    
+        根据上面的论文，loss函数氛围两部分
+        初始化ELOB loss L_HVAE = 0
+        1. L-hvae = l-hvae - logvar(q_l)
+            这里logvar(q_1)指的是，第一层编码得到的方差取对数
+        2. L-hvae = L-hvae + 1/M*sum(||μ_pl - μ_ql||^2)
+            μ_pl：指的对应第l层的解码器，学习出来的均值μ
+            μ_ql：指的对应第l层的编码器，学习出来的均值μ
+            M： 这里的M是指从p中采样出M个中间变量，但是其实在具体实现的时候，
+                我们不需要对z进行采样，直接使用编码器和解码器得到的均值就可以计算了
         """
-        total_loss = torch.tensor(0)
-
-        #计算重构误差1
-        recon_loss_x = torch.tensor(0)
+        # 1.计算编码器的方差对数之和
+        logvar_sum =  -torch.sum(torch.log(var["encoder01_var"]))
         for i in range(8):
-            #重构误差1：计算输入数据和租后一次解码输出之间的重构误差
-            recon_loss1 = nn.functional.mse_loss(rec_list[2][i], input_list[0], reduction='sum') 
-            recon_loss_x = recon_loss_x + recon_loss1
-        #print("重构误差1计算成功")
-        
-        #计算重构误差2
-        recon_loss_z1 = torch.tensor(0)
+            logvar_sum = logvar_sum - torch.sum(torch.log(var["encoder02_var"][i])) 
+            logvar_sum = logvar_sum - torch.sum(torch.log(var["encoder03_var"][i]))
+        # 2.计算对应层的编码器和解码器的均值方差之和
         for i in range(8):
-            #重构误差2：计算第二次编码的输入数据和第一次解码的输出之间的鸿沟误差
-            recon_loss2 = nn.functional.mse_loss(rec_list[1][i], input_list[1], reduction='sum')
-            recon_loss_z1 = recon_loss_z1 + recon_loss2
-        #print("重构误差2计算成功")
+            mu_sum = self.Loss_MSE(en_mu["encoder01_mu"], de_mu["decoder02_mu"][i])
+            mu_sum = mu_sum + self.Loss_MSE(en_mu["encoder02_mu"][i], de_mu["decoder01_mu"][i])
 
-        #计算重构误差3
-        recon_loss_z2 = torch.tensor(0) 
-        for i in range(8):
-            #通过mu_list和logvar_list进行重参数化
-            z2 = self.reparameterize(mu_logvar[1][0][i], mu_logvar[1][1][i])
-            recon_loss3 = nn.functional.mse_loss(rec_list[0][i], z2, reduction='sum')
-            recon_loss_z2 = recon_loss_z2 + recon_loss3
-        #print("重构误差3计算成功")
-
-
-        #计算3次的kl散度，也就是q(z)和p(z)之间的差距
-        # KL(q(z|x) || p(z|x)) = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        # 在这里我们一般认为p(z|x)为N(0,1)
-        
-        # kld_loss1 = -0.5 * torch.sum(1 + logvar1 - mu1.pow(2) - logvar1.exp())
-        # kld_loss2 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
-        # kld_loss3 = -0.5 * torch.sum(1 + logvar2 - mu2.pow(2) - logvar2.exp())
-        
-        total_loss_tmp = recon_loss_x + recon_loss_z1 + recon_loss_z2 
-
-        total_loss = total_loss_tmp + total_loss
+        # 将方差对数之和和均值之和相加，得到最终的loss函数
+        total_loss = logvar_sum + mu_sum
 
         return total_loss 
+
+    def decoder_sapmle(self, mu_list, var_list):
+        x_recon = []
+        for i, j in zip(mu_list, var_list):
+            z1 = self.reparameterize(i, j)
+            x_recon.append(z1)
+        return x_recon
+
 
 
     def forward(self, x):
         # Encode 3次编码
         #第一次编码
         mu1, logvar1 = self.encoder1(x).chunk(2, dim=-1)
+        #print(logvar1)
         #print("第一次编码结束...")
         z1 = self.reparameterize(mu1, logvar1)
 
@@ -364,23 +365,40 @@ class HVAE(nn.Module):
 
         # Decode 3次解码,
         #第一次解码，输入为z3是uha优化过的数据
-        x_recon1 = self.Decoder(z3_list, self.decoder1)
+        mu1_list, var1_list = self.Decoder(z3_list, self.decoder1)
         #print("第一次解码完成")
             
         #进行第二次解码
-        x_recon2 = self.Decoder(x_recon1, self.decoder2)
+        x_recon1 = self.decoder_sapmle(mu1_list, var1_list)
+        mu2_list, var2_list = self.Decoder(x_recon1, self.decoder2)
         #print("第二次解码完成")
 
         #进行第三次解码
+        x_recon2 = self.decoder_sapmle(mu2_list, var2_list)
         x_recon3 = self.Decoder(x_recon2, self.decoder3) 
         #print("第三次解码完成")
         
         #打包要计算loss所要用到的数据
-        recon_list = [x_recon1, x_recon2, x_recon3]
-        input_list = [x, z1]
-        mu_logvar = [[mu1, logvar1], [encoder2_mu, encoder2_logvar], [mu3_list, logvar3_list]]
+        # 将编码得到的方差组合为数组
+        var = {
+            "encoder01_var": logvar1,
+            "encoder02_var": encoder2_logvar,
+            "encoder03_var": logvar3_list
+        }
+
+        # 将编码和解码得到的均值组合
+        en_mu = {
+            "encoder01_mu":mu1,
+            "encoder02_mu":encoder2_mu,
+            "encoder03_mu":mu3_list
+        }
+
+        de_mu = {
+            "decoder01_mu":mu1_list,
+            "decoder02_mu":mu2_list,
+        }
         #计算loss这个变分自编码器的Loss函数
-        total_loss = self.loss_function(recon_list, input_list, mu_logvar)
+        total_loss = self.loss_function(var, en_mu, de_mu)
 
         return total_loss
 
