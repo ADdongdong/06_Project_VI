@@ -8,10 +8,12 @@ import numpy as np
 from tqdm import tqdm
 
 
-#数据处理
+# 数据处理
 data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
 
-#定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理
+# 定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理
+
+
 def define_model():
     base_distribution = distributions.StandardNormal((1,))
     # Define the flow
@@ -32,17 +34,17 @@ def define_model():
     return distribution
 
 
-#定义训练模型的函数
+# 定义训练模型的函数
 def train_model(distribution):
     sample_data = []
     optimizer = torch.optim.Adam(distribution.parameters(), lr=1e-3)
     for j in range(8):
-        #每次取出一个特征的数据进行学习
+        # 每次取出一个特征的数据进行学习
         data_ = torch.tensor(data[j])
-        #print(data_.shape)
+        # print(data_.shape)
         data_ = data_.reshape((len(data_), 1)).float()
-        #print(data_.shape)
-        #print(data_.dtype)
+        # print(data_.shape)
+        # print(data_.dtype)
         pbar = tqdm(range(500))
         for i in pbar:
             optimizer.zero_grad()
@@ -52,19 +54,19 @@ def train_model(distribution):
 
             description = f"Loss={loss:.2f}"
             pbar.set_description(description)
-            #if i % 100 == 0:
+            # if i % 100 == 0:
             #   print(i)
-        #将每次训练的结果保存下来
-        model_name = "./normalizingFlowModel/OptimA" + str(j+1) +".pt"
+        # 将每次训练的结果保存下来
+        model_name = "./normalizingFlowModel/OptimA" + str(j+1) + ".pt"
         torch.save(distribution.state_dict(), model_name)
-        #从Ai对应的模型中进行采样1000个数据并加入到sample_list文件中
-        sapmle_ = distribution.sample(1000)
+        # 从Ai对应的模型中进行采样1000个数据并加入到sample_list文件中
+        sapmle_ = distribution.sample(10000)
         sample_data.append(sapmle_.detach().numpy())
 
     return sample_data
 
 
-#定义计算均值和方差的函数
+# 定义计算均值和方差的函数
 def mena_var(sample_data):
     result = []
     for i in sample_data:
@@ -73,18 +75,18 @@ def mena_var(sample_data):
         result.append([mean, var])
     return result
 
-#定义数组，保存Ai采样出来的数据
-#通过训练这个流模型来学习这个分布
+
+# 定义数组，保存Ai采样出来的数据
+# 通过训练这个流模型来学习这个分布
 distribution = define_model()
 sample_data = train_model(distribution)
-#计算均值和方差
+# 计算均值和方差
 mean_var_list = mena_var(sample_data)
 print(mean_var_list)
 
-#将采样出来的数据保存起来
+# 将采样出来的数据保存起来
 sample_data = np.array(sample_data)
-#将计算的均值和方差也保存起来
+# 将计算的均值和方差也保存起来
 mean_var_list = np.array(mean_var_list)
 np.save("./00_data/mean_var_list.npy", mean_var_list)
 np.save('./00_data/sample_data.npy', sample_data)
-

@@ -291,8 +291,6 @@ class HVAE(nn.Module):
         return [mu_list, var_list]
 
 
-        
-
     #定义loss函数
     def loss_function(self, var, en_mu, de_mu):
         """
@@ -300,16 +298,17 @@ class HVAE(nn.Module):
             Learning Hierarchical Variational Autoencoders 
             with Mutual Information Maximization for Autoregressive Sequence Modeling
         encoder:q decode:p    
-        根据上面的论文，loss函数氛围两部分
+        根据上面的论文，loss函数分为两部分
         初始化ELOB loss L_HVAE = 0
-        1. L-hvae = l-hvae - logvar(q_l)
+        1. L_hvae = L_hvae - logvar(q_l)
             这里logvar(q_1)指的是，第一层编码得到的方差取对数
-        2. L-hvae = L-hvae + 1/M*sum(||μ_pl - μ_ql||^2)
+        2. L_hvae = L_hvae + 1/M*sum(||μ_pl - μ_ql||^2)
             μ_pl：指的对应第l层的解码器，学习出来的均值μ
             μ_ql：指的对应第l层的编码器，学习出来的均值μ
             M： 这里的M是指从p中采样出M个中间变量，但是其实在具体实现的时候，
                 我们不需要对z进行采样，直接使用编码器和解码器得到的均值就可以计算了
         """
+
         # 1.计算编码器的方差对数之和
         logvar_sum =  -torch.sum(torch.log(var["encoder01_var"]))
         for i in range(8):
