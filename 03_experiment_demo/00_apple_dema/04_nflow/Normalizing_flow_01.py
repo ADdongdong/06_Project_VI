@@ -5,19 +5,26 @@ import nflows.distributions as distributions
 import nflows.transforms as transforms
 import nflows.flows as flows
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
-from matrix_trans import normalizing_data
+from matrix_trans import matrix_data
 
 
 # 数据处理
 # data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
 # 数据处理
-data_ = np.load('./data/resutl_matrix.npy', allow_pickle=True)
-final_list = normalizing_data(data_)
+# data_ = np.load('./data/resutl_matrix.npy', allow_pickle=True)
+# final_list = normalizing_data(data_)
+
+loadder_array = np.load('data/new_data.npy')
+data = matrix_data(loadder_array)
+result_data = data.get_result_matrix_npy("data/new_result_matrix.npy")
+data.save_excel(result_data, "./data/new_trans_data.xlsx")
+final_list = data.to_normalizing_flow_data(result_data)
+data.__data_trans()
+
 
 # 定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理
-
-
 def define_model():
     base_distribution = distributions.StandardNormal((1,))
     # Define the flow
@@ -51,8 +58,8 @@ def train_model(distribution, data):
         for i in range(500):
             optimizer.zero_grad()
             loss = -distribution.log_prob(inputs=data_).mean()
-            loss.backward()
-            optimizer.step()
+            loss.backward()  # 反向传播计算梯度
+            optimizer.step()  # 根据梯度来优化模型参数
 
             #description = f"Loss={loss:.2f}"
             # pbar.set_description(description)
@@ -66,6 +73,15 @@ def train_model(distribution, data):
         sapmle_ = distribution.sample(10000)
         sample_data.append(sapmle_.detach().numpy())
 
+    # 先将list转化为array
+    array_sample = np.array(sample_data)
+    # 将(8, 10000, 1) -> (8, 10000)
+    reshape_sapmle = array_sample.reshape(8, 10000)
+    df = pd.DataFrame(reshape_sapmle.T)
+    # 指定要保存的文件名
+    excel_file = "./data/sample_data.xlsx"
+    # 将采样的数据保存到xlsx文件中
+    df.to_excel(excel_file, index=False, header=False, sheet_name="all_data")
     return sample_data
 
 
