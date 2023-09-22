@@ -11,17 +11,12 @@ from matrix_trans import matrix_data
 
 
 # 数据处理
-# data = np.load('./00_data/normalization_list.npy', allow_pickle=True)
-# 数据处理
-# data_ = np.load('./data/resutl_matrix.npy', allow_pickle=True)
-# final_list = normalizing_data(data_)
 
 loadder_array = np.load('data/new_data.npy')
 data = matrix_data(loadder_array)
 result_data = data.get_result_matrix_npy("data/new_result_matrix.npy")
 data.save_excel(result_data, "./data/new_trans_data.xlsx")
 final_list = data.to_normalizing_flow_data(result_data)
-data.__data_trans()
 
 
 # 定义模型 对经过聚类和挑选最优矩阵的数据进行正则化流处理

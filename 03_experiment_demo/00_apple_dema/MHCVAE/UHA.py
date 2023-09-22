@@ -13,7 +13,7 @@ class UHA:
         self.dim = dim
         self.L_m = L_m
         self.step_size = step_size
-        self.E = f 
+        # self.E = f 
 
     
     
