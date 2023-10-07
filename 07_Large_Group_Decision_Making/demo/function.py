@@ -15,7 +15,7 @@ for _ in range(n_samples):
     experts_data.append(expert)
 
 
-# 计算专家之间的兼容度
+# 计算专家之间的兼容度,公式4
 def calculate_compativility_degree(experts_data):
     '''
     参数:
@@ -46,23 +46,24 @@ def calculate_compativility_degree(experts_data):
 
 
 # 根据公式(10)计算子组之间的兼容度
-def calculate_subgroup_compatibility_degree(G_matrix, ω_matrix):
+def calculate_subgroup_compatibility_degree(subgroup_list):
     '''
-        参数： 
-            1. G_matrix 是所以自组聚类后的结果，都保存在G_matrix中
-            2. ω_matrix 是每个子组的的标准向量，都在ω_matrix中
+        参数：
+            参数是subgroup_list 表示自组经过求均值的scoreweight类型列表
+        返回值：
+            返回值就是The subgroup conflict index (SCI) between Gk and Gl
     '''
     # 计算子组的个数
-    G_number = len(G_matrix)
+    G_number = len(subgroup_list)
     # 定义一个二维矩阵保存自组之间的兼容度
-    subgroup_compatibility_degree = np.zeros((G_number, G_number))
+    subgroup_conflict_index = np.zeros((G_number, G_number))
     for i in range(G_number):
         for j in range(G_number):
-            C_i_j = (0.5*np.sum(G_matrix[i] - G_matrix[j])/m +
-                     0.5*np.sum(ω_matrix[i] - ω_matrix[j]))/n
-            subgroup_compatibility_degree[i][j] = C_i_j
+            C_i_j = (0.5*np.sum(subgroup_list[i].scores - subgroup_list[j].scores)/m +
+                     0.5*np.sum(subgroup_list[i].weights - subgroup_list[j].weights))/n
+        subgroup_conflict_index[i][j] = C_i_j
 
-    return subgroup_compatibility_degree
+    return subgroup_conflict_index
 
 
 def calculate_subgroup_weights(SCIkl):

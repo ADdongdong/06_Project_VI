@@ -10,8 +10,8 @@ class ScoreWeight:
     def __init__(self, score, weights) -> None:
         self.scores = score  # 打分矩阵, 直接初始化为normalization后的矩阵
         self.weights = weights
-        self.benefit_criterion_matrix  # 定义benefit criterion matrix
-        self.cost_criterion_matrix  # 定义cost_criterion_matrix
+        self.benefit_criterion_matrix = score  # 定义benefit criterion matrix
+        self.cost_criterion_matrix = score  # 定义cost_criterion_matrix
 
     def normalization_matrix(self):
         # 找到每一行的最小值和最大值

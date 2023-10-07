@@ -7,7 +7,7 @@ from ScoreWeight import ScoreWeight
 '''
 
 # 假设您的数据包含n_samples个元素，每个元素是一个m x n的二维矩阵，同时有一个n维的一维向量
-n_samples = 10  # 用于示例的样本数量
+n_samples = 20  # 用于示例的样本数量
 m, n = 3, 4  # 二维矩阵的大小，用于示例，n个标准，m个方案
 
 # 生成示例数据
@@ -27,7 +27,7 @@ def fcm(experts_data, n_clusters):
             experts_data 专家打分结构体
             n_cluster 聚类簇的数量
     '''
-    # 将打分矩阵展平
+    # 将打分矩阵展平,只选择打分矩阵进行排序
     flattened_scores = [expert.scores.flatten() for expert in experts_data]
     data_matrix = np.vstack(flattened_scores).T
 
@@ -70,4 +70,4 @@ def fcm(experts_data, n_clusters):
     return clusters
 
 
-clusters = fcm(experts_data, 5)
+clusters = fcm(experts_data, 3)
