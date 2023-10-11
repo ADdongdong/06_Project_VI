@@ -8,7 +8,7 @@ from function import *
 '''
 # 初始化参数
 T = 100  # 最大迭代次数
-ψ = 0.1  # 冲突阈值
+ψ = 0.01  # 冲突阈值
 K = 5  # 子组数量, 这里的子组数量就是簇的数量
 
 # 假设您的数据包含n_samples个元素，每个元素是一个m x n的二维矩阵，同时有一个n维的一维向量
@@ -38,20 +38,29 @@ def adaptive_conflict_revising(experts_data, ψ, K):
     # 这里t是迭代次数
     t = 0
     # 开始迭代
-    while t < T and Gt:
+    while t < T and Gt != []:
         # 计算子组冲突指数
-        sci_matrix = calculate_subgroup_compatibility_degree(experts_data)
-        SCIt = np.max(sci_matrix)
+        sci_matrix = np.array(
+            calculate_subgroup_compatibility_degree(experts_data))
+        # print(sci_matrix)
+
+        # 找到冲突最大的那个值，即那一对子组
+        initial_value = -np.inf
+        SCIt = np.max(sci_matrix, initial=initial_value)
+        # print(SCIt)
 
         # 检查冲突终止条件
+        # 如果冲突最大的自组间冲突小于阈值，说明冲突消除了
         if np.all(SCIt <= ψ):
             break
 
         # 选择最不兼容的子组
+        #y, z = np.unravel_index(np.argmax(sci_matrix), sci_matrix.shape)
         y, z = np.unravel_index(np.argmax(sci_matrix), sci_matrix.shape)
-
+        #print(f"({y}, {z})")
         # 冲突解决 15 - 18
         if (y, z) in Gt and (z, y) in Gt:
+            print("开始修改")
             # a) 两个子组都接受反馈建议
             alpha_t = 0.5  # 根据算法具体公式确定 alpha_t
             for k in range(K):
@@ -67,6 +76,7 @@ def adaptive_conflict_revising(experts_data, ψ, K):
                         experts_data[z].scores**alpha_t * experts_data[y].scores**(1-alpha_t))
 
         elif (y, z) in Gt:
+            print("开始修改")
             # b) Gy接受，Gz拒绝
             alpha_t = 0.5  # 根据算法具体公式确定 alpha_t
             for k in range(K):
@@ -77,6 +87,7 @@ def adaptive_conflict_revising(experts_data, ψ, K):
                         experts_data[y].scores**alpha_t * experts_data[z].scores**(1-alpha_t))
 
         elif (z, y) in Gt:
+            print("开始修改")
             # c) Gz接受，Gy拒绝
             alpha_t = 0.5  # 根据算法具体公式确定 alpha_t
             for k in range(K):
@@ -88,14 +99,19 @@ def adaptive_conflict_revising(experts_data, ψ, K):
 
         # 更新迭代计数和子组集合
         t += 1
-        Gt = [(i, j) for i in range(K) for j in range(K) if SCIt[i, j] > ψ]
+        Gt = [(i, j) for i in range(K)
+              for j in range(K) if sci_matrix[i, j] > ψ]
+        print(Gt)
 
     return experts_data
 
 
-experts_data = adaptive_conflict_revising(experts_data, ψ, K)
-print(experts_data)
+for i, expert_data in enumerate(experts_data):
+    print(expert_data.scores)
+    print(expert_data.weights)
 
+experts_data = adaptive_conflict_revising(experts_data, ψ, K)
+print('------------')
 for i, expert_data in enumerate(experts_data):
     print(expert_data.scores)
     print(expert_data.weights)

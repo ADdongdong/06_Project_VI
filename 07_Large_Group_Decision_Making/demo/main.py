@@ -26,11 +26,12 @@ def algorithm_3(experts_data, n_clusters, ψ, T, Q):
     subgroups = fcm(experts_data, n_clusters)
 
     # step2: 通过公式10计算自组之间的兼容度
+    //
     sci_matrix = calculate_subgroup_compatibility_degree(subgroups)
     max_SCIkl = np.max(sci_matrix)
 
     # Step 4: 减小子组之间的冲突
-    finally_matrix = adaptive_conflict_revising(experts_data, ψ, T)
+    finally_matrix = adaptive_conflict_revising(subgroups, ψ, T)
 
     # Step 6: 输出最终权重向量和决策矩阵
     # 这里需要根据实际公式和数据结构输出结果

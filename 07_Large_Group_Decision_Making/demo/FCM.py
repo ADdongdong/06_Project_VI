@@ -61,13 +61,18 @@ def fcm(experts_data, n_clusters):
     # 同时，返回一个新的数组，这个数组中每个元素都包含了每个簇的scores和标准vector的均值
     clusters = []
     for i, (mean_scores, mean_weights) in enumerate(cluster_means):
-        print(f"Cluster {i + 1} - Mean Scores:")
-        print(mean_scores)
-        print(f"Cluster {i + 1} - Mean Weights:")
-        print(mean_weights)
-        cluster = ScoreWeight(mean_scores, mean_weights)
-        clusters.append(cluster)
+        if not np.isnan(mean_scores).any() or not np.isnan(mean_weights).any():
+            print(f"Cluster {i + 1} - Mean Scores:")
+            print(mean_scores)
+            print(f"Cluster {i + 1} - Mean Weights:")
+            print(mean_weights)
+            cluster = ScoreWeight(mean_scores, mean_weights)
+            clusters.append(cluster)
+
     return clusters
 
 
 clusters = fcm(experts_data, 3)
+print(clusters)
+print(len(clusters))
+print(clusters[0].scores)
