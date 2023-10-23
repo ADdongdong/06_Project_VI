@@ -20,7 +20,7 @@ class HVAE(nn.Module):
         self.linear_regression = torch.nn.Linear(8,1)
 
         #定义随机梯度下降优化器
-        self.optim_SGD = torch.optim.SGD(self.linear_regression.parameters(), lr=0.01)
+        self.optim_SGD = torch.optim.SGD(self.linear_regression.parameters(), lr=0.0001)
 
         #通过numpy读取数据,这个数据在模型被创建的时候就导入
         self.a1_a8 = np.load('../00_data/mean_var_list.npy', allow_pickle=True)
@@ -89,7 +89,7 @@ class HVAE(nn.Module):
         self.decoder4 = nn.Sequential(
             nn.Linear(16, hidden_size1),
             nn.ReLU(),
-            nn.Linear(hidden_size1, 1000)
+            nn.Linear(hidden_size1, input_size)
         )
         
         
