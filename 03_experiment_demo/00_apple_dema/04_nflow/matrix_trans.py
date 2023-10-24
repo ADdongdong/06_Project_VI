@@ -10,8 +10,6 @@ from openpyxl import Workbook
 # 这个类接收到的数据是一个numpy.array
 # 这个array中，有多个8*8的二维array
 # 所以，初始化对象的时候，可以传入一个(n, 8, 8)shape的数据
-
-
 class matrix_data():
     def __init__(self, data) -> None:
         self.data = data
